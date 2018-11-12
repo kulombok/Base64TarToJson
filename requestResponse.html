@@ -1,0 +1,242 @@
+
+<input type="file" id="file_input" class="foo" />
+<br />
+
+<script>
+/*
+ * TAR Result Dictionary
+ * 0 - / - [Directory]
+ * 1 - /.config - [Normal]
+ * 2 - /report_coverpage.html - [Normal]
+ * 3 - /rpt_status.log - [Normal]
+ * 4 - /js/ - [Directory]
+ * 5 - /js/jquery-2.1.1.min.js - [Normal]
+ * 6 - /js/toc.js - [Normal]
+ * 7 - /js/forti_chart_basic.js - [Normal]
+ * 8 - /js/d3.js - [Normal]
+ * 9 - /images/ - [Directory]
+ * 10 - /images/fortinet_grey.png - [Normal]
+ * 11 - /images/def_cover_bgimg_ver1.png - [Normal]
+ * 12 - /data/ - [Directory]
+ * 13 - /FortiAnalyzer_Report.html - [Normal]
+ * 14 - /FortiAnalyzer_Report.xml - [Normal] // currebt used
+ * 15 - /FortiAnalyzer_Report.csv - [Normal]
+ * 16 - /.status - [Normal]
+ * 17 - /genpdf.log - [Normal]
+ * 18 - /FortiAnalyzer_Report.pdf - [Normal]
+ * 19 - /report_toc.html - [Normal]
+ * 20 - /style/ - [Directory]
+ * 21 - /style/user_report.css - [Normal]
+ * 22 - /style/chart.css - [Normal]
+ * 23 - /style/gradient.png - [Normal]
+ * 24 - /style/report.css - [Normal]
+ * 25 - /replace.sed - []
+ */
+</script>
+<script type="text/javascript">
+	/*
+	* Read File with content base64 as string
+	*/
+	document.getElementById('file_input').addEventListener('change',
+		function() {
+			readFile(this.files[0], function(e) {
+				// use result in callback...
+				var text = e.target.result;
+
+				var contentType = 'application/tar+gzip';
+				var blob = b64toBlob(text, contentType);
+				var file = new File([blob], "fileTest.tar", {
+					type: 'application/tar'
+				});
+
+				// call to open tar file
+				FileHelper.loadFileAsBytes(
+					file,
+					loadAndOpenTarFile // callback
+					);
+			})
+		}, true);
+
+	/*
+	* Convert byte .tar file to blob and decompress it
+	* return of this function is to get XML content in blob
+	*/
+	function loadAndOpenTarFile(fileName, fileAsBytes) {
+		var tarFile = TarFile.fromBytes(fileName, fileAsBytes);
+		var xmlByte = tarFile.entries.filter(searchXmlInTarFile);
+		var blob = byteToBlob(xmlByte[0].dataAsBytes);
+		var file = new File([blob], "report.xml", {
+			type: 'application/xml'
+		});
+		var blobUrl = URL.createObjectURL(file);
+
+		// call to open xml file
+		loadAndOpenXMLFile(blobUrl);
+	}
+
+	/*
+	* Load XML file from blob and return it to string
+	*/
+	function loadAndOpenXMLFile(blobUrl) {
+		var xmlHTTP = new XMLHttpRequest();
+
+		try {
+			xmlHTTP.open("GET", blobUrl, true);
+			xmlHTTP.setRequestHeader("Content-type", "application/xml");
+			xmlHTTP.onload = function(res) {
+				if (this.status == 200) {
+					var json = xmlReaderToJson(this);
+					console.log(json);
+				}else{
+					window.alert("Your xml file is unable to load");
+				}
+			};
+			xmlHTTP.send();
+		} catch (e) {
+			window.alert("Unable to load the requested file.");
+		}
+	}
+
+	/*
+	* XML reader to read xml type from string
+	* return json formated
+	* this is manually break the xml and format it to json
+	* XML tag have 4 child deep
+	*/
+	function xmlReaderToJson(xml){
+		var xmlDoc = xml.responseXML.children[0];
+		var rootTags = xmlDoc.children;
+
+		var result = {};
+		result.name = xmlDoc.attributes.name.nodeValue;
+		result.report = [];
+
+		if (rootTags.length > 0){
+			for (var i=0; i<rootTags.length; i++){
+				var rootTag = rootTags[i];
+				var rootChilds = rootTag.children;
+
+				var reportResult = {};
+				reportResult.name = rootTag.attributes.name.nodeValue;
+				reportResult.types = rootTag.nodeName;
+				reportResult.details = [];
+
+				if (rootTags.length > 0){
+					for (var j=0; j<rootChilds.length; j++){
+						var firstTag = rootChilds[j];
+						var firstChilds = firstTag.children;
+						var reportDetails;
+
+						if (firstChilds.length < 1){
+							reportDetails = firstTag.textContent.replace(/['"]+/g, '');
+						}else{
+							reportDetails = {};
+							for (var k=0; k<firstChilds.length; k++){
+								var secondTag = firstChilds[k];
+								var secondTagName = secondTag.nodeName;
+								var secondTagContent = (secondTagName == "Time_Stamp" || secondTagName == "Date") ? epochToDate(secondTag.textContent) : secondTag.textContent;
+
+								reportDetails[secondTagName] = secondTagContent;
+							}
+						}
+
+						reportResult.details.push(reportDetails);
+					}
+				}
+
+				result.report.push(reportResult);
+			}
+		}
+
+		return JSON.stringify(result);
+	}
+
+</script>
+<script type="text/javascript">
+	/*
+	* Read file from input
+	*/
+	function readFile(file, onLoadCallback) {
+		var reader = new FileReader();
+		reader.onload = onLoadCallback;
+		reader.readAsText(file);
+	}
+
+	/*
+	* Convert base64 to blob data type
+	* but before can do that, make sure u need do convert to byte first
+	*/
+	function b64toBlob(b64Data, contentType, sliceSize) {
+		contentType = contentType || '';
+		sliceSize = sliceSize || 512;
+
+		var byteCharacters = atob(b64Data);
+		var byteArrays = [];
+
+		for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+			var slice = byteCharacters.slice(offset, offset + sliceSize);
+
+			var byteNumbers = new Array(slice.length);
+			for (var i = 0; i < slice.length; i++) {
+				byteNumbers[i] = slice.charCodeAt(i);
+			}
+
+			var byteArray = new Uint8Array(byteNumbers);
+
+			byteArrays.push(byteArray);
+		}
+
+		var blob = new Blob(byteArrays, {
+			type: contentType
+		});
+
+		return blob;
+	}
+
+	/*
+	* Filter search from .tar file data bytes
+	* Only return where file name contain .xml
+	*/
+	function searchXmlInTarFile(entries){
+		var fileName = entries.header.fileName;
+		if (fileName.search('.xml') > 1){
+			return true;
+		}
+		return false;
+	}
+
+	/*
+	* Convert databyte to blob
+	*/
+	function byteToBlob(bytesToWrite){
+		var bytesToWriteAsArrayBuffer = new ArrayBuffer(bytesToWrite.length);
+		var bytesToWriteAsUIntArray = new Uint8Array(bytesToWriteAsArrayBuffer);
+		for (var i = 0; i < bytesToWrite.length; i++)
+		{
+			bytesToWriteAsUIntArray[i] = bytesToWrite[i];
+		}
+
+		var bytesToWriteAsBlob = new Blob
+		(
+			[ bytesToWriteAsArrayBuffer ],
+			{ type:"application/type" }
+			);
+
+		return bytesToWriteAsBlob;
+	}
+
+	/*
+	* Epoch time to Human Date Time GMT+7
+	*/
+	function epochToDate(epoch){
+		var myDate = new Date( epoch *1000);
+		return myDate.toLocaleDateString();
+	}
+</script>
+<script type="text/javascript" src="ByteHelper.js"></script>
+<script type="text/javascript" src="ByteStream.js"></script>
+<script type="text/javascript" src="FileHelper.js"></script>
+<script type="text/javascript" src="TarFile.js"></script>
+<script type="text/javascript" src="TarFileEntry.js"></script>
+<script type="text/javascript" src="TarFileEntryHeader.js"></script>
+<script type="text/javascript" src="TarFileTypeFlag.js"></script>

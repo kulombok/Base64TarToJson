@@ -1,0 +1,63 @@
+
+<input type="file" id="file_input" class="foo" />
+<div id="output_field" class="foo"></div>
+
+<script type="text/javascript">
+	var currentdate = new Date();
+	var datetime = currentdate.getFullYear() +
+		currentdate.getDate() + (currentdate.getMonth() + 1) + " " +
+		currentdate.getHours() + ":" + currentdate.getMinutes() +
+		":" + currentdate.getSeconds();
+
+	document.getElementById('file_input').addEventListener('change',
+		function() {
+			readFile(this.files[0], function(e) {
+				// use result in callback...
+				var text = e.target.result;
+				console.log(text);
+				var contentType = 'application/tar+gzip';
+				var blob = b64toBlob(text, contentType);
+				var blobUrl = URL.createObjectURL(blob);
+
+				var a = document.createElement('a');
+				var linkText = document.createTextNode("fileTest");
+				a.appendChild(linkText);
+				a.title = "fileTest";
+				a.href = blobUrl;
+				a.download = datetime + "fileTest.tar";
+				document.body.appendChild(a);
+			})
+		}, true);
+
+	function readFile(file, onLoadCallback) {
+		var reader = new FileReader();
+		reader.onload = onLoadCallback;
+		reader.readAsText(file);
+	}
+
+	function b64toBlob(b64Data, contentType, sliceSize) {
+		contentType = contentType || '';
+		sliceSize = sliceSize || 512;
+
+		var byteCharacters = atob(b64Data);
+		var byteArrays = [];
+
+		for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+			var slice = byteCharacters.slice(offset, offset + sliceSize);
+
+			var byteNumbers = new Array(slice.length);
+			for (var i = 0; i < slice.length; i++) {
+				byteNumbers[i] = slice.charCodeAt(i);
+			}
+
+			var byteArray = new Uint8Array(byteNumbers);
+
+			byteArrays.push(byteArray);
+		}
+
+		var blob = new Blob(byteArrays, {
+			type: contentType
+		});
+		return blob;
+	}
+</script>

@@ -1,0 +1,105 @@
+
+<input type="file" id="file_input" class="foo" />
+<br />
+
+<script>
+/*
+ * TAR Result Dictionary
+ * 0 - / - [Directory]
+ * 1 - /.config - [Normal]
+ * 2 - /report_coverpage.html - [Normal]
+ * 3 - /rpt_status.log - [Normal]
+ * 4 - /js/ - [Directory]
+ * 5 - /js/jquery-2.1.1.min.js - [Normal]
+ * 6 - /js/toc.js - [Normal]
+ * 7 - /js/forti_chart_basic.js - [Normal]
+ * 8 - /js/d3.js - [Normal]
+ * 9 - /images/ - [Directory]
+ * 10 - /images/fortinet_grey.png - [Normal]
+ * 11 - /images/def_cover_bgimg_ver1.png - [Normal]
+ * 12 - /data/ - [Directory]
+ * 13 - /FortiAnalyzer_Report.html - [Normal]
+ * 14 - /FortiAnalyzer_Report.xml - [Normal] // currebt used
+ * 15 - /FortiAnalyzer_Report.csv - [Normal]
+ * 16 - /.status - [Normal]
+ * 17 - /genpdf.log - [Normal]
+ * 18 - /FortiAnalyzer_Report.pdf - [Normal]
+ * 19 - /report_toc.html - [Normal]
+ * 20 - /style/ - [Directory]
+ * 21 - /style/user_report.css - [Normal]
+ * 22 - /style/chart.css - [Normal]
+ * 23 - /style/gradient.png - [Normal]
+ * 24 - /style/report.css - [Normal]
+ * 25 - /replace.sed - []
+ */
+</script>
+
+<script type="text/javascript">
+	document.getElementById('file_input').addEventListener('change',
+		function() {
+			readFile(this.files[0], function(e) {
+				// use result in callback...
+				var text = e.target.result;
+				console.log('base64: ' + text);
+
+				var contentType = 'application/tar+gzip';
+				var blob = b64toBlob(text, contentType);
+				var blobUrl = URL.createObjectURL(blob);
+				var file = new File([blob], "fileTest.tar", {
+					type: 'application/tar'
+				});
+				console.log('fileTar: ' + file);
+
+				FileHelper.loadFileAsBytes(
+					file,
+					inputTarFileToLoad_Change2 // callback
+				);
+			})
+		}, true);
+
+	function readFile(file, onLoadCallback) {
+		var reader = new FileReader();
+		reader.onload = onLoadCallback;
+		reader.readAsText(file);
+	}
+
+	function b64toBlob(b64Data, contentType, sliceSize) {
+		contentType = contentType || '';
+		sliceSize = sliceSize || 512;
+
+		var byteCharacters = atob(b64Data);
+		var byteArrays = [];
+
+		for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+			var slice = byteCharacters.slice(offset, offset + sliceSize);
+
+			var byteNumbers = new Array(slice.length);
+			for (var i = 0; i < slice.length; i++) {
+				byteNumbers[i] = slice.charCodeAt(i);
+			}
+
+			var byteArray = new Uint8Array(byteNumbers);
+
+			byteArrays.push(byteArray);
+		}
+
+		var blob = new Blob(byteArrays, {
+			type: contentType
+		});
+		return blob;
+	}
+
+	function inputTarFileToLoad_Change2(fileName, fileAsBytes) {
+		console.log('tarName: ' + fileName);
+		console.log('tarByte: ' + fileAsBytes);
+		var tarFile = TarFile.fromBytes(fileName, fileAsBytes);
+		console.log(tarFile.entries[14]);
+	}
+</script>
+<script type="text/javascript" src="ByteHelper.js"></script>
+<script type="text/javascript" src="ByteStream.js"></script>
+<script type="text/javascript" src="FileHelper.js"></script>
+<script type="text/javascript" src="TarFile.js"></script>
+<script type="text/javascript" src="TarFileEntry.js"></script>
+<script type="text/javascript" src="TarFileEntryHeader.js"></script>
+<script type="text/javascript" src="TarFileTypeFlag.js"></script>
